@@ -2,3 +2,4 @@ __pycache__/
 /.coverage*
 .*_cache
 .venv
+*.egg-info
