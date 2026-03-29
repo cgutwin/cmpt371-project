@@ -10,16 +10,36 @@ def start_client():
     
     # Initializes a socket, AF_INET -> IPV4, SOCK_STREAM -> TCP Protocol
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client.connect((HOST, PORT))
 
-    client.sendall(f"JOIN:{player_name}\n".encode("utf-8"))
-    print(f"{player_name} Connected. Waiting for next Opponent")
+    try:
+        client.connect((HOST, PORT))
 
-    while True:
-        # Reads up to 1024 bytes of data that is sent from the server
-        # Converts the received bytes into a string using UTF-8 encoding
-        data = client.recv(1024).decode("utf-8")
+        client.sendall(f"JOIN {player_name}\n".encode("utf-8"))
+        print(f"{player_name} connected. Waiting for opponent")
 
+        while True:
+            # Reads up to 1024 bytes of data that is sent from the server
+            # Converts the received bytes into a string using UTF-8 encoding
+            message = client.recv(1024).decode("utf-8").strip()
+            
+            # https://www.geeksforgeeks.org/python/python-string-split/
+            parts = message.split()
+            command = parts[0]
+            # if server sends more than 2 arguments, succeeding arguments are stored in a list 
+            args = parts[1:] 
+
+            if command == "GAME_START":
+                print(f"Game started! Your opponent is {args[0]}")
+
+    except ConnectionRefusedError:
+        # Server is not running or unreachable
+        print("Could not connect to server. Make sure that it is running!")
+
+    except socket.error as e:
+        # Any other socket error that occurs 
+        print(f"Network error: {e}")
+
+    finally:    
         client.close()
         
 
@@ -27,12 +47,6 @@ def start_client():
 
 def main() -> None:
     print("client")
-
-    guess = input("Guess a word: ").upper()
-    if guess == "CAT":
-        print("your guess was: " + guess)
-    else:
-        print("wrong")
 
 
 if __name__ == "__main__":
