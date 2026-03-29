@@ -11,6 +11,7 @@ def start_client():
     # Initializes a socket, AF_INET -> IPV4, SOCK_STREAM -> TCP Protocol
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
+    # Reference: https://stackoverflow.com/questions/38544493/python-socket-programming-exception-handling/38545213#38545213
     try:
         client.connect((HOST, PORT))
 
@@ -25,7 +26,7 @@ def start_client():
             # https://www.geeksforgeeks.org/python/python-string-split/
             parts = message.split()
             command = parts[0]
-            # if server sends more than 2 arguments, succeeding arguments are stored in a list 
+            # If server sends more than 1 argument, succeeding arguments are stored in a list 
             args = parts[1:] 
 
             if command == "GAME_START":
@@ -36,7 +37,7 @@ def start_client():
         print("Could not connect to server. Make sure that it is running!")
 
     except socket.error as e:
-        # Any other socket error that occurs 
+        # Any other socket errors that occurs 
         print(f"Network error: {e}")
 
     finally:    
