@@ -1,6 +1,6 @@
 import socket
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import cast
 
 # TODO: Extract to an environment file (#2)
@@ -16,7 +16,6 @@ waiting_player: WaitingPlayer | None = None
 class WaitingPlayer:
     conn: socket.socket
     username: str
-    event: threading.Event = field(default_factory=threading.Event)
 
 
 def send(conn: socket.socket, message: str) -> None:
@@ -40,7 +39,7 @@ def parse_message(line: str) -> tuple[str, list[str]] | None:
     return parts[0].upper(), parts[1:]
 
 
-def handle_command_JOIN(conn: socket.socket, args: list[str]):
+def handle_command_JOIN(conn: socket.socket, args: list[str]) -> None:
     # Use a waiting player state as a global variable. We'll place a waiting
     # player there if not already.
     global waiting_player
@@ -65,15 +64,11 @@ def handle_command_JOIN(conn: socket.socket, args: list[str]):
 
     if partner is None:
         send(conn, "WAITING")
-        # Block this client until a partner connects, awoken below.
-        _ = player_to_wait.event.wait()
+        return
     else:
         send(partner.conn, f"GAME_START {username}")
         send(conn, f"GAME_START {partner.username}")
-
-        # Wakes the partner thread which was waiting for a player to join, so
-        # they continue from their `wait()` above where `partner is None`.
-        partner.event.set()
+        return
 
 
 def handle_client(conn: socket.socket, addr: tuple[str, int]) -> None:
@@ -92,6 +87,8 @@ def handle_client(conn: socket.socket, addr: tuple[str, int]) -> None:
         try:
             reader = conn.makefile("r")
 
+            joined = False
+
             for line in reader:
                 msg = parse_message(line)
 
@@ -99,9 +96,12 @@ def handle_client(conn: socket.socket, addr: tuple[str, int]) -> None:
                     continue
 
                 command, args = msg
-                if command == "JOIN":
+
+                # Don't want them joining twice
+                if command == "JOIN" and not joined:
+                    joined = True
                     handle_command_JOIN(conn, args)
-                    break
+
         # The client can disconnect mid-reading or handling, and can maybe
         # leave a client waiting when they've left.
         except (ConnectionResetError, BrokenPipeError, OSError) as e:
@@ -131,15 +131,18 @@ def main() -> None:
 
         # Accept clients in a loop and spawn a thread for them: this will be
         # used later because clients will each run their guesses in real-time.
-        while True:
-            # Casting to create explicit types for passing.
-            # The addr for AF_INET is tuple[str, int] and varies for different
-            # protocols.
-            result = cast(tuple[socket.socket, tuple[str, int]], s.accept())
-            conn, addr = result
-            threading.Thread(
-                target=handle_client, args=(conn, addr), daemon=True
-            ).start()
+        try:
+            while True:
+                # Casting to create explicit types for passing.
+                # The addr for AF_INET is tuple[str, int] and varies for
+                # different protocols.
+                result = cast(tuple[socket.socket, tuple[str, int]], s.accept())
+                conn, addr = result
+                threading.Thread(
+                    target=handle_client, args=(conn, addr), daemon=True
+                ).start()
+        except KeyboardInterrupt:
+            s.close()
 
 
 if __name__ == "__main__":
