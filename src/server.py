@@ -1,13 +1,18 @@
+import signal
 import socket
 import threading
 from dataclasses import dataclass
 from io import TextIOWrapper
 from typing import cast
 
-from protocol_commands import Command
+from protocol_commands import Command, InvalidGuessReason
 
 HOST = ""
 PORT = 3000
+
+
+# https://stackoverflow.com/questions/17174001/stop-pyzmq-receiver-by-keyboardinterrupt/26392777#26392777
+signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 
 @dataclass
@@ -15,6 +20,37 @@ class Player:
     conn: socket.socket
     reader: TextIOWrapper
     username: str
+    game_session: GameSession | None
+
+
+class GameSession:
+    def __init__(self, players: tuple[Player, Player], word: str) -> None:
+        self._players = players
+        self._word = word
+        self._lock = threading.Lock()
+        self._guess_counts: dict[str, int] = {
+            players[0].username: 0,
+            players[1].username: 0,
+        }
+
+    # https://stackoverflow.com/questions/76915922/python-comparison-problem-for-wordle-type-game
+    def handle_guess(self, guess_word: str) -> str | None:
+        response = ""
+        word_letters = list(self._word.lower())
+
+        try:
+            for a, b in zip(self._word, guess_word, strict=True):
+                if a in word_letters:
+                    response += "G" if a == b else "Y"
+                    word_letters.remove(a)
+                else:
+                    response += "X"
+
+        except ValueError:
+            print("guess is not equal size of the word.")
+            return
+
+        return response
 
 
 class GameLobby:
@@ -71,7 +107,7 @@ def parse_message(line: str) -> tuple[Command, list[str]] | None:
     return command, parts[1:]
 
 
-def handle_command_JOIN(player: Player, args: list[str]) -> None:
+def handle_command_JOIN(player: Player, args: list[str]) -> Player | None:
     if not args:
         return
 
@@ -83,9 +119,7 @@ def handle_command_JOIN(player: Player, args: list[str]) -> None:
         send(player.conn, "WAITING")
         return
     else:
-        send(partner.conn, f"GAME_START {player.username}")
-        send(player.conn, f"GAME_START {partner.username}")
-        return
+        return partner
 
 
 def handle_client(conn: socket.socket, addr: tuple[str, int]) -> None:
@@ -96,7 +130,8 @@ def handle_client(conn: socket.socket, addr: tuple[str, int]) -> None:
     # https://docs.python.org/3/library/socket.html#socket.socket.makefile
     # ...compared to...
     # https://docs.python.org/3/library/socket.html#socket.socket.recv
-    player = Player(conn, conn.makefile("r"), username="")
+    player = Player(conn, conn.makefile("r"), username="", game_session=None)
+    game: GameSession | None = None
 
     try:
         for line in player.reader:
@@ -108,7 +143,29 @@ def handle_client(conn: socket.socket, addr: tuple[str, int]) -> None:
             command, args = msg
 
             if command == Command.JOIN:
-                handle_command_JOIN(player=player, args=args)
+                partner = handle_command_JOIN(player=player, args=args)
+
+                # If when joining, we have a partner, we're ready to start the game.  # noqa: E501
+                if partner:
+                    game = GameSession(word="react", players=(player, partner))
+
+                    player.game_session = game
+                    partner.game_session = game
+
+                    # Should be sending after the game is created instead of just when joining.  # noqa: E501
+                    send(partner.conn, f"GAME_START {player.username}")
+                    send(player.conn, f"GAME_START {partner.username}")
+            elif command == Command.GUESS:
+                assert game
+
+                res = game.handle_guess(args[0])
+                if res is None:
+                    send(
+                        player.conn,
+                        message=f"{Command.INVALID_GUESS} {InvalidGuessReason.WRONG_LENGTH}",  # noqa: E501
+                    )
+                send(player.conn, f"{Command.GUESS_RESULT} {res}")
+
     # The client can disconnect mid-reading or handling, and can maybe
     # leave a client waiting when they've left.
     except (ConnectionResetError, BrokenPipeError, OSError) as e:
