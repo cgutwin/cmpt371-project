@@ -2,10 +2,12 @@ import signal
 import socket
 import sys
 import threading
-from dataclasses import dataclass
-from io import TextIOWrapper
 from pathlib import Path
 from typing import cast
+
+import wordledict as wordledict
+from game_session import GameSession
+from player import Player
 
 # TEMP fix to solve Zed debugger not finding module on Linux
 sys.path.insert(0, str(Path(__file__).parent))
@@ -14,57 +16,19 @@ from protocol_commands import Command, InvalidGuessReason
 
 HOST = ""
 PORT = 3000
+MAX_GUESSES = 6
 
 
 # https://stackoverflow.com/questions/17174001/stop-pyzmq-receiver-by-keyboardinterrupt/26392777#26392777
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 
-@dataclass
-class Player:
-    conn: socket.socket
-    reader: TextIOWrapper
-    username: str
-    game_session: GameSession | None
-
-
-class GameSession:
-    def __init__(self, players: tuple[Player, Player], word: str) -> None:
-        self._players = players
-        self._word = word
-        self._lock = threading.Lock()
-        self._guess_counts: dict[str, int] = {
-            players[0].username: 0,
-            players[1].username: 0,
-        }
-
-    # https://stackoverflow.com/questions/76915922/python-comparison-problem-for-wordle-type-game
-    def handle_guess(self, guess_word: str) -> str | None:
-        response = ""
-        word_letters = list(self._word.lower())
-
-        try:
-            for a, b in zip(self._word, guess_word, strict=True):
-                if b in word_letters:
-                    response += "G" if a == b else "Y"
-                    word_letters.remove(b)
-                else:
-                    response += "X"
-
-        except ValueError:
-            print("guess is not equal size of the word.")
-            return
-
-        return response
-
-    def get_player_by_num(self, num: int) -> Player:
-        return self._players[num]
-
-    def increment_player_guess_count(self, player: Player) -> None:
-        self._guess_counts[player.username] += 1
-
-    def get_player_guess_count(self, player: Player) -> int:
-        return self._guess_counts[player.username]
+def send(conn: socket.socket, message: str) -> None:
+    try:
+        conn.sendall((message + "\n").encode())
+    # If the connection no longer exists, we just don't send.
+    except BrokenPipeError, OSError:
+        pass
 
 
 class GameLobby:
@@ -92,14 +56,7 @@ class GameLobby:
 
 
 lobby = GameLobby()
-
-
-def send(conn: socket.socket, message: str) -> None:
-    try:
-        conn.sendall((message + "\n").encode())
-    # If the connection no longer exists, we just don't send.
-    except BrokenPipeError, OSError:
-        pass
+active_games: dict[str, GameSession] = {}
 
 
 def parse_message(line: str) -> tuple[Command, list[str]] | None:
@@ -119,6 +76,65 @@ def parse_message(line: str) -> tuple[Command, list[str]] | None:
 
     # Return (command, arguments).
     return command, parts[1:]
+
+
+def handle_command_GUESS(player: Player, args: list[str]) -> None:
+    if args[0].lower() not in list(
+        set(wordledict.allowed_guesses) | set(wordledict.possible_answers)
+    ):
+        send(
+            player.conn,
+            f"{Command.INVALID_GUESS} {InvalidGuessReason.NOT_A_WORD}",
+        )
+        return
+
+    if not active_games[player.username] or not args:
+        return
+
+    session = active_games[player.username]
+
+    if session.state[player.username].guess_count >= MAX_GUESSES:
+        return
+
+    opponent = session.get_player_opponent(player)
+    guess_result = session.handle_guess(player, args[0].lower())
+
+    if guess_result is None:
+        send(
+            player.conn,
+            f"{Command.INVALID_GUESS} {InvalidGuessReason.WRONG_LENGTH}",
+        )
+        return
+
+    guess_feedback, guess_count = guess_result
+
+    send(player.conn, f"{Command.GUESS_RESULT} {guess_feedback}")
+    send(
+        opponent.conn,
+        f"{Command.OPPONENT_PROGRESS} {guess_count}",
+    )
+
+    if guess_feedback == "GGGGG":
+        session.mark_player_has_solved(player)
+        send(
+            opponent.conn,
+            f"{Command.OPPONENT_SOLVED}",
+        )
+
+    if (
+        session.state[opponent.username].guess_count >= MAX_GUESSES
+        or guess_feedback == "GGGGG"
+    ):
+        # Check if opponent is also done
+        opp_count = session.state[opponent.username].guess_count
+        opp_solved = session.state[opponent.username].solve_time is not None
+        if opp_solved or opp_count >= MAX_GUESSES:
+            if session.try_end():
+                for p in (player, opponent):
+                    send(
+                        p.conn,
+                        f"{Command.GAME_OVER} {session.get_player_result(player)} {session.state[player.username].solve_time} {session.state[opponent.username].solve_time}",  # noqa: E501
+                    )
 
 
 def handle_command_JOIN(player: Player, args: list[str]) -> Player | None:
@@ -144,8 +160,7 @@ def handle_client(conn: socket.socket, addr: tuple[str, int]) -> None:
     # https://docs.python.org/3/library/socket.html#socket.socket.makefile
     # ...compared to...
     # https://docs.python.org/3/library/socket.html#socket.socket.recv
-    player = Player(conn, conn.makefile("r"), username="", game_session=None)
-    game: GameSession | None = None
+    player = Player(conn, conn.makefile("r"), username="")
 
     try:
         for line in player.reader:
@@ -161,34 +176,16 @@ def handle_client(conn: socket.socket, addr: tuple[str, int]) -> None:
 
                 # If when joining, we have a partner, we're ready to start the game.  # noqa: E501
                 if partner:
-                    game = GameSession(word="react", players=(player, partner))
+                    game = GameSession(players=(player, partner))
 
-                    player.game_session = game
-                    partner.game_session = game
+                    active_games[player.username] = game
+                    active_games[partner.username] = game
 
                     # Should be sending after the game is created instead of just when joining.  # noqa: E501
                     send(partner.conn, f"GAME_START {player.username}")
                     send(player.conn, f"GAME_START {partner.username}")
             elif command == Command.GUESS:
-                if not player.game_session:
-                    return None
-
-                print(f"guessing for player {player.username}: {args[0]}")
-                res = player.game_session.handle_guess(args[0])
-
-                if res is None:
-                    send(
-                        player.conn,
-                        message=f"{Command.INVALID_GUESS} {InvalidGuessReason.WRONG_LENGTH}",  # noqa: E501
-                    )
-
-                player.game_session.increment_player_guess_count(player)
-
-                send(player.conn, f"{Command.GUESS_RESULT} {res}")
-                send(
-                    player.game_session.get_player_by_num(1).conn,
-                    f"{Command.OPPONENT_GUESS_NUM} {player.game_session.get_player_guess_count(player)}",
-                )
+                handle_command_GUESS(player=player, args=args)
 
     # The client can disconnect mid-reading or handling, and can maybe
     # leave a client waiting when they've left.
