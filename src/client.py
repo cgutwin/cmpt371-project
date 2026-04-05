@@ -136,6 +136,23 @@ def start_client():
                 if args[0] != "GGGGG" and guess_count < NUMBER_OF_GUESSES:
                     client_guess(client)
 
+            # elif command == "OPPONENT_PROGRESS":
+            #     opponent_count = args[0]
+            #     print(f"Opponent's guess count: {opponent_count}")
+
+            # elif command == "OPPONENT_SOLVED":
+            #     print("Opponent has solved the puzzle!")
+
+            elif command == "GAME_OVER":
+                result = args[0]
+                player_time = args[1]
+                opponent_time = args[2]
+                print(f"\n=== GAME OVER ===")
+                print(f"You {result} !")
+                print(f"Your time: {player_time}")
+                print(f"Opponent time: {opponent_time}")
+                break
+
     except ConnectionRefusedError:
         # Server is not running or unreachable
         print("Could not connect to server. Make sure that it is running!")
