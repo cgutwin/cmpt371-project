@@ -116,7 +116,27 @@ def start_client():
                 # Stores the guess_result data passed from the server in feedback array
                 feedback[guess_count - 1] = args[0]
                 print_board()
-                client_guess(client)
+                # Don't prompt for another guess if the player just solved the
+                # word or exhausted all guesses — GAME_OVER is coming next.
+                if args[0] != "GGGGG" and guess_count < NUMBER_OF_GUESSES:
+                    client_guess(client)
+
+            # elif command == "OPPONENT_PROGRESS":
+            #     opponent_count = args[0]
+            #     print(f"Opponent's guess count: {opponent_count}")
+
+            # elif command == "OPPONENT_SOLVED":
+            #     print("Opponent has solved the puzzle!")
+
+            elif command == "GAME_OVER":
+                result = args[0]
+                player_time = args[1]
+                opponent_time = args[2]
+                print(f"\n=== GAME OVER ===")
+                print(f"You {result} !")
+                print(f"Your time: {player_time}")
+                print(f"Opponent time: {opponent_time}")
+                break
 
     except ConnectionRefusedError:
         # Server is not running or unreachable
@@ -142,6 +162,6 @@ def test_print_board():
     print_board()
 
 if __name__ == "__main__":
-    test_print_board()
-    # start_client()
+    # test_print_board()
+    start_client()
     # main()
