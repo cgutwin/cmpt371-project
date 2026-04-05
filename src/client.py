@@ -118,15 +118,6 @@ def start_client():
                 # Asks client to send another guess due to invalid input
                 client_guess(client)
 
-            elif command == "OPPONENT_PROGRESS":
-                print(f"opponent guess count: {args[0]}")
-
-            elif command == "OPPONENT_SOLVED":
-                print("opponent solved")
-
-            elif command == "GAME_OVER":
-                print("game over")
-
             elif command == "GUESS_RESULT":
                 # Stores the guess_result data passed from the server in feedback array
                 feedback[guess_count - 1] = args[0]
