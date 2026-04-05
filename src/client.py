@@ -1,7 +1,7 @@
 import socket
-
 import colorama
-from colorama import Back, Style, init
+import re
+from colorama import Back, Fore, Style, init
 from protocol_commands import Command
 
 colorama.init(autoreset=True)
@@ -45,17 +45,70 @@ def colourize_guess(guess, feedback):
             result += Style.BRIGHT + GREY + letter
     return result
 
+# Returns the set of used letters guessed by the player
+def get_used_letters():
+    used = set()
+    for guess in guesses:
+        if guess != "_" * GUESS_LENGTH:
+            used.update(guess)
+    return used
 
+# returns the set of letters that were in the wordle from the guessed word
+def get_correct_letters():
+    correct = set()
+    for i in range(guess_count):
+        if feedback[i] != "_" * GUESS_LENGTH:
+            for j in range(GUESS_LENGTH):
+                if feedback[i][j] in ["G", "Y"]:
+                    correct.add(guesses[i][j])
+    return correct
+
+# Centers the guesses of the colourized guesses
+# Copilot assisted here due to center() function not working with colourized characters 
+def center_coloured_text(text, width):
+    # Remove ANSI codes to calculate visible length
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    visible_length = len(ansi_escape.sub('', text))
+
+    padding = (width - visible_length) // 2
+    return " " * padding + text
+
+# Displays game board
+# CoPilot helped with the layout of the game board
 def print_board():
-    print(f"Guess number: {guess_count}")
+    width = 50
+    
+    print("\n" + "="*width)
+    print("WORDLE GAME".center(width))
+    print("="*width)
+    
+    # Prints the stats 
+    remaining = NUMBER_OF_GUESSES - guess_count
+    stats = f"Guess: {guess_count}/{NUMBER_OF_GUESSES} | Remaining: {remaining}"
+    print(stats.center(width))
+    print("-"*width)
+    
+    # Prints the guesses
     for i in range(NUMBER_OF_GUESSES):
         if feedback[i] == "_____":
-            # Prints an empty row if there has not been a guess yet
-            print(f"{guesses[i]}")
+            print(guesses[i].center(width))
         else:
-            # colourize each guess with its feedback
-            print(f"{colourize_guess(guesses[i], feedback[i])}")
-    print("\n")
+            coloured = colourize_guess(guesses[i], feedback[i])
+            print(center_coloured_text(coloured, width))
+    
+    # Prints which letters have been used and which ones are correct
+    print("-"*width)
+    used_letters = get_used_letters()
+    correct_letters = get_correct_letters()
+    
+    letters_text = f"Letters: {', '.join(sorted(used_letters)) if used_letters else 'None'}"
+    print(letters_text.center(width))
+    
+    if correct_letters:
+        correct_text = f"Correct: {Style.BRIGHT + Fore.GREEN + ', '.join(sorted(correct_letters)) + Style.RESET_ALL}"
+        print(correct_text.center(width))
+    
+    print("="*width + "\n")
 
 
 def client_guess(client):
@@ -64,8 +117,10 @@ def client_guess(client):
         client_input = input("Please enter a 5 letter word: ").strip().upper()
         if len(client_input) != GUESS_LENGTH:
             print("Error: Word must be exactly 5 letters ")
+
         elif not client_input.isalpha():
             print("Error: Word must only contain letters")
+
         else:
             # Stores current guess in guesses array and increments guess_count
             guesses[guess_count] = client_input
@@ -102,7 +157,10 @@ def start_client():
             args = parts[1:]
 
             if command == Command.GAME_START:
+                global opponent_name
+                opponent_name = args[0]
                 print(f"Game started! Your opponent is {args[0]}")
+                
                 print_board()
 
                 # Function to receive input from user first argument should be command
@@ -128,21 +186,31 @@ def start_client():
                 if args[0] != "GGGGG" and guess_count < NUMBER_OF_GUESSES:
                     client_guess(client)
 
-            # elif command == "OPPONENT_PROGRESS":
-            #     opponent_count = args[0]
-            #     print(f"Opponent's guess count: {opponent_count}")
-
-            # elif command == "OPPONENT_SOLVED":
-            #     print("Opponent has solved the puzzle!")
-
             elif command == Command.GAME_OVER:
                 result = args[0]
-                player_time = args[1]
-                opponent_time = args[2]
-                print(f"\n=== GAME OVER ===")
-                print(f"You {result} !")
-                print(f"Your time: {player_time}")
-                print(f"Opponent time: {opponent_time}")
+                player_time = float(args[1])
+                opponent_time = float(args[2])
+                
+                width = 50
+ 
+                print("\n" + "="*width)
+                print(f"  GAME OVER - YOU {result.upper()}!".center(48))
+                print("="*width)
+                
+                if result.upper() == "WIN":
+                    if player_time < opponent_time:
+                        seconds_ahead = opponent_time - player_time
+                        print(f"You beat {opponent_name} by {seconds_ahead:.1f} seconds!")
+
+                elif result.upper() == "LOSE":
+                    seconds_behind = player_time - opponent_time
+                    print(f"{opponent_name} beat you by {seconds_behind:.1f} seconds")
+
+                else:
+                    print(f"Tie with {opponent_name}! Both players took the same time.")
+                
+                print(f"\n  Your time:      {player_time:.1f}s")
+                print(f"  Opponent time:  {opponent_time:.1f}s\n")
                 break
 
     except ConnectionRefusedError:
@@ -161,16 +229,9 @@ def main() -> None:
     print("client")
 
 
-# Temp function
-def test_print_board():
-    global guesses, feedback
-    guesses = ["CRANE", "PLANT", "GREAT", "WRONG", "_____", "_____"]
-    feedback = ["GYXGX", "XXYXX", "GGGGG", "XXXXX", "_____", "_____"]
-    print("Testing...")
-    print_board()
+
 
 
 if __name__ == "__main__":
-    # test_print_board()
     start_client()
     # main()
