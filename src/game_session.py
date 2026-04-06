@@ -1,7 +1,9 @@
+import random
 import threading
 import time
 from dataclasses import dataclass
 
+import wordledict
 from player import Player
 
 
@@ -13,8 +15,7 @@ class PlayerState:
 
 class GameSession:
     def __init__(self, players: tuple[Player, Player]) -> None:
-        # TODO: Add word list and random word grabber
-        self.word: str = "react"
+        self.word: str = random.choice(wordledict.possible_answers)
         self.players: tuple[Player, Player] = players
         self.state: dict[str, PlayerState] = {
             p.username: PlayerState() for p in players
@@ -39,8 +40,8 @@ class GameSession:
 
     def get_player_result(self, player: Player) -> str:
         """
-        The player results are based on their time to solve (TTS) the puzzle, compared
-        to their opponents TTS.
+        The player results are based on their time to solve (TTS) the puzzle,
+        compared to their opponents TTS.
         """
         player_solve_time = self.state[player.username].solve_time
 
@@ -59,27 +60,35 @@ class GameSession:
             return "LOSE"
         return "DRAW"
 
-    # https://stackoverflow.com/questions/76915922/python-comparison-problem-for-wordle-type-game
     def handle_guess(
         self, player: Player, guess_word: str
     ) -> tuple[str, int] | None:
-        response = ""
-        word_letters = list(self.word.lower())
-
-        try:
-            for a, b in zip(self.word, guess_word, strict=True):
-                if b in word_letters:
-                    response += "G" if a == b else "Y"
-                    word_letters.remove(b)
-                else:
-                    response += "X"
-
-        except ValueError:
-            print("guess is not equal size of the word.")
+        if len(self.word) != len(guess_word):
             return
+        # Start with all X in the response
+        response = ["X"] * len(self.word)
+        unmatched_letters: list[str] = []
+
+        # Look at all pairs of letters in the word and guess
+        for i, (w, g) in enumerate(zip(self.word, guess_word, strict=False)):
+            # Letters match
+            if w == g:
+                response[i] = "G"
+            # Add letters we haven't matched to our list
+            else:
+                unmatched_letters.append(w)
+
+        # Look over the guess word again
+        for i, (_, g) in enumerate(zip(self.word, guess_word, strict=False)):
+            if response[i] == "G":
+                continue
+            # If the guess letter is in the wrong spot, mark it and move on
+            if g in unmatched_letters:
+                response[i] = "Y"
+                unmatched_letters.remove(g)
 
         self.state[player.username].guess_count += 1
-        return response, self.state[player.username].guess_count
+        return "".join(response), self.state[player.username].guess_count
 
     def try_end(self) -> bool:
         with self.game_ended_lock:
