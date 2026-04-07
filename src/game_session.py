@@ -34,8 +34,8 @@ class GameSession:
             return self.players[0]
 
     def mark_player_has_solved(self, player: Player) -> None:
-        self.state[player.username].solve_time = (
-            time.monotonic() - self.game_start_time
+        self.state[player.username].solve_time = round(
+            time.monotonic() - self.game_start_time, 3
         )
 
     def get_player_result(self, player: Player) -> str:
