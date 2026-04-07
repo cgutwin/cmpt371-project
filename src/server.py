@@ -2,6 +2,7 @@ import signal
 import socket
 import sys
 import threading
+from math import inf
 from pathlib import Path
 from typing import cast
 
@@ -136,7 +137,7 @@ def handle_command_GUESS(player: Player, args: list[str]) -> None:
                 ):
                     send(
                         p.conn,
-                        f"{Command.GAME_OVER} {session.get_player_result(p)} {session.state[p.username].solve_time} {session.state[opp.username].solve_time}",  # noqa: E501
+                        f"{Command.GAME_OVER} {session.get_player_result(p)} {session.state[p.username].solve_time or inf} {session.state[opp.username].solve_time or inf}",  # noqa: E501
                     )
 
 
