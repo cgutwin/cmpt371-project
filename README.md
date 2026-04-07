@@ -75,6 +75,8 @@ source .venv/bin/activate.fish      # fish (Mac/Linux)
 .\.venv\Scripts\Activate.ps1        # PowerShell (Windows)
 ```
 
+It will be activated if you see (.venv) in your prompt.
+
 ### 4. Install Dependencies
 ```sh
 pip install -r requirements.txt # or pip3 install -r requirements.txt
