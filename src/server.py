@@ -107,20 +107,13 @@ def handle_command_GUESS(player: Player, args: list[str]) -> None:
         )
         return
 
-    guess_feedback, guess_count = guess_result
+    # Unwrap guess_count as _, we don't send the opponent information anymore.
+    guess_feedback, _ = guess_result
 
     send(player.conn, f"{Command.GUESS_RESULT} {guess_feedback}")
-    send(
-        opponent.conn,
-        f"{Command.OPPONENT_PROGRESS} {guess_count}",
-    )
 
     if guess_feedback == "GGGGG":
         session.mark_player_has_solved(player)
-        send(
-            opponent.conn,
-            f"{Command.OPPONENT_SOLVED}",
-        )
 
     if (
         session.state[player.username].guess_count >= MAX_GUESSES
