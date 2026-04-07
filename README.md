@@ -13,7 +13,7 @@
 | Name              | Student ID | Email                    |
 | :---------------- | :--------- | :----------------------- |
 | Chris Gutwin      | 301400079  | cgutwin@sfu.ca           |
-| Matthew Tortolano | 301505019  | matthew_tortolano@sfu.ca |
+| Matthew Tortolano | 301605019  | matthew_tortolano@sfu.ca |
 
 ## Project Overview & Description
 
