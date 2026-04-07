@@ -83,7 +83,7 @@ pip install -r requirements.txt # or pip3 install -r requirements.txt
 ## Step-by-Step Run Guide
 
 > [!IMPORTANT]
-> Activate the Python virtual environment in each new terminal you open using the commands from [Activate the Virtual Environment](3-activate-the-virtual-environment).
+> Activate the Python virtual environment in each new terminal you open using the commands from [Activate the Virtual Environment](#3-activate-the-virtual-environment).
 
 ### 1. Start the Server
 
