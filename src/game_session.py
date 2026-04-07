@@ -15,7 +15,8 @@ class PlayerState:
 
 class GameSession:
     def __init__(self, players: tuple[Player, Player]) -> None:
-        self.word: str = random.choice(wordledict.possible_answers)
+        self.word: str = "react"
+        # self.word: str = random.choice(wordledict.possible_answers)
         self.players: tuple[Player, Player] = players
         self.state: dict[str, PlayerState] = {
             p.username: PlayerState() for p in players

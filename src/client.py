@@ -197,20 +197,40 @@ def start_client():
                 print(f"  GAME OVER - YOU {result.upper()}!".center(48))
                 print("="*width)
                 
+                # Player won the game
                 if result.upper() == "WIN":
-                    if player_time < opponent_time:
+                    # Opponent ran out of guesses (didn't solve)
+                    if opponent_time == float("inf"):
+                        print(f"You beat {opponent_name}! They ran out of guesses.")
+                    # Opponent solved but player was faster
+                    else:
                         seconds_ahead = opponent_time - player_time
                         print(f"You beat {opponent_name} by {seconds_ahead:.1f} seconds!")
 
+                # Player lost the game
                 elif result.upper() == "LOSE":
-                    seconds_behind = player_time - opponent_time
-                    print(f"{opponent_name} beat you by {seconds_behind:.1f} seconds")
+                    # Player ran out of guesses (didn't solve)
+                    if player_time == float("inf"):
+                        print(f"{opponent_name} beat you! You ran out of guesses.")
+                    # Player solved but opponent was faster
+                    else:
+                        seconds_behind = player_time - opponent_time
+                        print(f"{opponent_name} beat you by {seconds_behind:.1f} seconds")
 
+                # Draw
                 else:
-                    print(f"Tie with {opponent_name}! Both players took the same time.")
-                
-                print(f"\n  Your time:      {player_time:.1f}s")
-                print(f"  Opponent time:  {opponent_time:.1f}s\n")
+                    # Both players ran out of guesses
+                    if player_time == float("inf") and opponent_time == float("inf"):
+                        print(f"Tie with {opponent_name}! Both ran out of guesses.")
+                    # Both players solved at the same time
+                    else:
+                        print(f"Tie with {opponent_name}! Both players took the same time.")
+
+                # Displays "Ran of of guesses" if time is inf, otherwise displays time in seconds  
+                player_time_str = "Ran out of guesses" if player_time == float("inf") else f"{player_time:.1f}s"
+                opponent_time_str = "Ran out of guesses" if opponent_time == float("inf") else f"{opponent_time:.1f}s"
+                print(f"\n  Your time:      {player_time_str}")
+                print(f"  Opponent time:  {opponent_time_str}\n")
                 break
 
     except ConnectionRefusedError:
