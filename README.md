@@ -55,6 +55,7 @@ Below is a step-by-step guide to run the project. You will need:
 ### 1. Clone the Repository
 ```sh
 git clone https://github.com/cgutwin/cmpt371-project.git
+cd cmpt371-project
 ```
 
 ### 2. Create a Virtual Python Environment
@@ -62,7 +63,7 @@ git clone https://github.com/cgutwin/cmpt371-project.git
 python -m venv .venv # or python3 -m venv .venv
 ```
 
-### 3. Activate the Virtual Environment:
+### 3. Activate the Virtual Environment
 
 Depending on your terminal shell and operating system, pick the appropriate command to source the environment.
 
@@ -74,12 +75,17 @@ source .venv/bin/activate.fish      # fish (Mac/Linux)
 .\.venv\Scripts\Activate.ps1        # PowerShell (Windows)
 ```
 
+It will be activated if you see (.venv) in your prompt.
+
 ### 4. Install Dependencies
 ```sh
 pip install -r requirements.txt # or pip3 install -r requirements.txt
 ```
 
 ## Step-by-Step Run Guide
+
+> [!IMPORTANT]
+> Activate the Python virtual environment in each new terminal you open using the commands from [Activate the Virtual Environment](#3-activate-the-virtual-environment).
 
 ### 1. Start the Server
 
