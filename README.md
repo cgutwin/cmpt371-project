@@ -54,8 +54,8 @@ Below is a step-by-step guide to run the project. You will need:
 
 ### 1. Clone the Repository
 ```sh
-git clone https://github.com/cgutwin/cmpt371-project.git
-cd cmpt371-project
+git clone https://github.com/cgutwin/CMPT371_A3_PythonSocketWordle.git
+cd CMPT371_A3_PythonSocketWordle
 ```
 
 ### 2. Create a Virtual Python Environment
