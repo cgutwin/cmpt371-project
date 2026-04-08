@@ -45,6 +45,9 @@ Listed below are Limitations from our project and edge cases that solutions have
 
 ## Video Demo
 
+Our video demonstration covering connection establishment, data exchange, real-time gameplay, and process termination can be viewed below:  
+[Watch Video Demo on YouTube](https://www.youtube.com/watch?v=H8QQIvQ0hec)
+
 ## Prerequisites (Fresh Environment)
 
 Below is a step-by-step guide to run the project. You will need:
